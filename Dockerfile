@@ -1,7 +1,7 @@
 FROM mariadb
 
 RUN apt-get update \
- && apt-get upgrade -y -o Dpkg::Options::="--force-confnew" --no-install-recommends \
+ && apt-get upgrade -y --force-yes -o Dpkg::Options::="--force-confnew" --no-install-recommends \
  && apt-get autoremove \
  && apt-get clean -y \
  && rm -rf /tmp/* \
@@ -13,4 +13,12 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && rm -f /var/cache/apt/*.bin
 
-VOLUME /var/lib/mysql
+ADD setup/ /
+
+RUN chmod +x /usr/local/bin/* \
+    && chmod 777 /usr/local/bin/*
+
+RUN cd /tmp \
+    && touch test.txt
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

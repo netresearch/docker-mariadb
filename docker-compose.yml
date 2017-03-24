@@ -1,0 +1,10 @@
+version: '2'
+services:
+  mariadb:
+      build: .
+      environment:
+        - MYSQL_ROOT_PASSWORD=rootPwd
+        - MYSQL_DATABASE=db
+        - MYSQL_USER=user
+        - MYSQL_PASSWORD=pwd
+        - DATABASE_MODE=IGNORE
