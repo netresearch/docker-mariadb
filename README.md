@@ -1,5 +1,8 @@
 # MariaDB Docker Image
 
+[![](https://images.microbadger.com/badges/image/vergissberlin/debian-development.svg)](https://microbadger.com/images/vergissberlin/debian-development "Get your own image badge on microbadger.com")
+[![](https://images.microbadger.com/badges/version/netresearch/docker-mariadb.svg)](https://microbadger.com/images/netresearch/docker-mariadb "Get your own version badge on microbadger.com")
+
 This is the source for the MariaDB Docker image based on mariadb
 
 ## Development
