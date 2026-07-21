@@ -13,12 +13,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && rm -f /var/cache/apt/*.bin
 
-ADD setup/ /
+COPY setup/ /
 
 RUN chmod +x /usr/local/bin/* \
     && chmod 777 /usr/local/bin/*
-
-RUN cd /tmp \
-    && touch test.txt
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

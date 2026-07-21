@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions: {}
+
+jobs:
+  docker-ci:
+    uses: netresearch/.github/.github/workflows/docker-image-ci.yml@main
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+      attestations: write
+      actions: read
+      pull-requests: write
+    secrets:
+      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+    with:
+      image-name: docker-mariadb
+      dockerfile: ./Dockerfile
+      lint-container: true
+      shell-scandirs: setup
+      lint-yaml: true
+      lint-markdown: true
+      lint-compose: true
+      compose-files: docker-compose.yml
+      enable-gitleaks: true
+      enable-codeql: false
+      enable-smoke-test: false

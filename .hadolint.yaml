@@ -1,0 +1,5 @@
+# DL3006: the base image intentionally tracks the rolling `mariadb` tag;
+# pinning a digest here would freeze the DB version and defeat the wrapper's
+# "latest mariadb" purpose. Version selection is the deployer's concern.
+ignored:
+  - DL3006
