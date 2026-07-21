@@ -25,4 +25,4 @@ fi
 
 docker-entrypoint.sh mysqld
 
-$@
+"$@"
