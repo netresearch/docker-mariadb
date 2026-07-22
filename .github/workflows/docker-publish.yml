@@ -48,14 +48,19 @@ jobs:
         type=ref,event=tag
         type=ref,event=pr
         type=raw,value=latest
+      # An explicit tag list leaves metadata-action's flavor at `latest=auto`,
+      # which appends `latest` again on a tag push. The explicit type=raw above
+      # already reproduces the previous `flavor: latest=true` on every event,
+      # so turn the implicit one off to emit exactly one `latest`.
+      metadata-flavor: latest=false
       push: ${{ github.event_name != 'pull_request' }}
       # Cosign keyless (OIDC) signing, as before. Only runs when push is true.
       sign: true
       # Container scanning already runs in ci.yml (docker-image-ci ->
       # build-container, scan: true); the publish workflow never scanned.
       scan: false
-      # The nightly run exists to pick up a fresh `FROM mariadb` base image and
-      # the apt upgrade layer. With the GHA layer cache it would restore the
-      # previous layer chain and rebuild nothing, turning that refresh into a
-      # no-op — so cache is off for scheduled runs only.
-      cache: ${{ github.event_name != 'schedule' }}
+      # Cache only on pull_request. Any run that PUBLISHES must rebuild for
+      # real: with cache-from a push build restores the layer chain from
+      # before the nightly's `apt upgrade`, and would overwrite `:latest` /
+      # `:master` with a LESS patched image than the nightly just published.
+      cache: ${{ github.event_name == 'pull_request' }}
