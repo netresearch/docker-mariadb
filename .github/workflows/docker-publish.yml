@@ -1,9 +1,14 @@
 name: Docker
 
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
+# Build, publish and sign the container image.
+#
+# Every step lives in the shared reusable workflow
+# netresearch/.github/.github/workflows/build-container-bake.yml — this file
+# only supplies configuration. The build itself is driven by docker-bake.hcl.
+#
+# NOTE: as of this workflow, the image is published to GitHub Container
+# Registry ONLY. The Docker Hub mirror (docker.io/netresearch/docker-mariadb)
+# is no longer updated.
 
 on:
   schedule:
@@ -13,87 +18,44 @@ on:
   pull_request:
     branches: [ master ]
 
-env:
-  # Use docker.io for Docker Hub if empty
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
-
+permissions: {}
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    uses: netresearch/.github/.github/workflows/build-container-bake.yml@main
+    # A called workflow's job permissions are validated statically at startup,
+    # so the caller must grant the union of everything the reusable declares —
+    # including security-events: write, even with scan disabled.
     permissions:
       contents: read
       packages: write
-      # This is used to complete the identity challenge
-      # with sigstore/fulcio when running outside of PRs.
+      security-events: write
       id-token: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # Install the cosign tool except on PR
-      # https://github.com/sigstore/cosign-installer
-      - name: Install cosign
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      # Workaround: https://github.com/docker/build-push-action/issues/461
-      - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-
-      # Login against a Docker registry except on PR
-      # https://github.com/docker/login-action
-      - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Log in to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      # Extract metadata (tags, labels) for Docker
-      # https://github.com/docker/metadata-action
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
-        with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-            ${{ env.IMAGE_NAME }}
-          flavor: |
-            latest=true
-
-      # Build and push Docker image with Buildx (don't push on PR)
-      # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      # Sign the resulting Docker image digest except on PRs.
-      # This will only write to the public Rekor transparency log when the Docker
-      # repository is public to avoid leaking data.  If you would like to publish
-      # transparency data even for private images, pass --force to cosign below.
-      # https://github.com/sigstore/cosign
-      - name: Sign the published Docker image
-        if: ${{ github.event_name != 'pull_request' }}
-        env:
-          COSIGN_EXPERIMENTAL: "true"
-        # This step uses the identity token to provision an ephemeral certificate
-        # against the sigstore community Fulcio instance.
-        run: cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+    with:
+      targets: app
+      # metadata-action writes its tag/label bake files to local $RUNNER_TEMP
+      # paths; without this, bake would build from the git remote context and
+      # fail to find them.
+      bake-source: "."
+      registry: ghcr.io
+      metadata-images: ghcr.io/${{ github.repository }}
+      # Reproduces metadata-action's default tag set plus the previous
+      # `flavor: latest=true` (type=raw has the lowest priority, so `latest`
+      # stays a secondary tag and the OCI version label is unchanged).
+      metadata-tags: |
+        type=schedule
+        type=ref,event=branch
+        type=ref,event=tag
+        type=ref,event=pr
+        type=raw,value=latest
+      push: ${{ github.event_name != 'pull_request' }}
+      # Cosign keyless (OIDC) signing, as before. Only runs when push is true.
+      sign: true
+      # Container scanning already runs in ci.yml (docker-image-ci ->
+      # build-container, scan: true); the publish workflow never scanned.
+      scan: false
+      # The nightly run exists to pick up a fresh `FROM mariadb` base image and
+      # the apt upgrade layer. With the GHA layer cache it would restore the
+      # previous layer chain and rebuild nothing, turning that refresh into a
+      # no-op — so cache is off for scheduled runs only.
+      cache: ${{ github.event_name != 'schedule' }}
