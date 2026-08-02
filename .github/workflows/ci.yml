@@ -19,8 +19,6 @@ jobs:
       attestations: write
       actions: read
       pull-requests: write
-    secrets:
-      GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
     with:
       image-name: docker-mariadb
       dockerfile: ./Dockerfile
